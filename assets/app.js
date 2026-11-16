@@ -13,7 +13,6 @@
   }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-  /* ---------- JSON tipado ---------- */
   function val(v) {
     if (typeof v === 'string') return '<span class="s">"' + esc(v) + '"</span>';
     return '<span class="n">' + esc(v) + '</span>';
@@ -33,7 +32,6 @@
     if (animate && !reduce) { void el.offsetWidth; el.classList.add('type'); }
   }
 
-  /* ---------- hero: relógio + JSON do gatilho ---------- */
   var clockEl = $('#clock');
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function now() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
@@ -55,7 +53,6 @@
     }, true);
   })();
 
-  /* ---------- nós, HUD e fios ---------- */
   var flow = $('#flow');
   var wires = $('#wires');
   var seq = $$('[data-n]');
@@ -93,7 +90,6 @@
       if (!out || !inn) continue;
       addWire(out, inn, i + 1);
     }
-    // sub-workflows: do nó pai para cada cartão, e de cada cartão para o próximo nó
     $$('.fan').forEach(function (fan) {
       var from = document.getElementById(fan.getAttribute('data-from'));
       var to = document.getElementById(fan.getAttribute('data-to'));
@@ -161,7 +157,6 @@
       if (el.id === 'chat') { var ca = $('#chatAnchor'); if (ca) ca.classList.add('done'); }
     }
     doneIdx = idx;
-    // acende os sub-workflows quando o nó pai executa
     $$('.fan .sub').forEach(function (c) {
       var pi = seq.indexOf(document.getElementById(c.parentNode.getAttribute('data-from')));
       if (pi >= 0 && pi <= idx) c.classList.add('done');
@@ -176,7 +171,7 @@
       entries.forEach(function (en) {
         if (!en.isIntersecting) return;
         var idx = seq.indexOf(en.target);
-        if (idx === 0) return; // gatilho é marcado por timer
+        if (idx === 0) return; 
         markUpTo(idx);
       });
     }, { rootMargin: '0px 0px -22% 0px', threshold: 0.02 });
@@ -186,7 +181,6 @@
   }
   setTimeout(function () { markUpTo(0); }, reduce ? 0 : 750);
 
-  /* ---------- demo fixada: agente de parceiros ---------- */
   var IC = { wa: '#i-wa', db: '#i-db', split: '#i-split', spark: '#i-spark', key: '#i-key', rpa: '#i-rpa', send: '#i-send', user: '#i-user' };
   var NODES = {
     trig:   { x: 65,  y: 180, ic: 'wa',    t: 'Mensagem',    s: 'parceiro escreve',        trig: true },
@@ -385,7 +379,6 @@
   buildScen();
   if (reduce) manualStep = SCEN[0].steps.length - 1;
 
-  /* ---------- scroll / resize ---------- */
   var ticking = false;
   function onScroll() {
     if (ticking) return;
@@ -415,7 +408,6 @@
   wf.classList.add('nt');
   requestAnimationFrame(function () { requestAnimationFrame(function () { wf.classList.remove('nt'); }); });
 
-  /* ---------- execução automática ---------- */
   var auto = false, raf = 0, lastT = 0, savedBehavior = '';
   function stopAuto() {
     if (!auto) return;
@@ -460,7 +452,6 @@
   var sb = $('#stopBtn');
   if (sb) sb.addEventListener('click', stopAuto);
 
-  /* ---------- chat de FAQ ---------- */
   var norm = function (s) {
     return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9+\s]/g, ' ').replace(/\s+/g, ' ').trim();
   };

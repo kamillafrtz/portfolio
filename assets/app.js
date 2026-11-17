@@ -31,6 +31,14 @@
     el.innerHTML = jsonHtml(obj);
     if (animate && !reduce) { void el.offsetWidth; el.classList.add('type'); }
   }
+  function tableHtml(obj) {
+    var h = '<table class="kv">';
+    Object.keys(obj).forEach(function (k) {
+      var v = obj[k];
+      h += '<tr><td>' + esc(k) + '</td><td class="' + (typeof v === 'string' ? 's' : 'n') + '">' + esc(v) + '</td></tr>';
+    });
+    return h + '</table>';
+  }
 
   /* ---------- contadores ---------- */
   function setCount(el, v) {
@@ -54,20 +62,12 @@
     }
     requestAnimationFrame(step);
   }
-  function startCounts(root) {
-    try { $$('[data-count]', root).forEach(runCount); } catch (e) {}
-  }
 
   var clockEl = $('#clock');
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function now() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
   var t0 = now();
   if (clockEl) { clockEl.textContent = t0; }
-
-  var edEl = $('#edition');
-  if (edEl) {
-    try { edEl.textContent = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) {}
-  }
 
   (function heroJson() {
     var host = 'direto';
@@ -180,12 +180,22 @@
       document.body.classList.remove('at-chat');
     }
   }
+  function stamp(el) {
+    try {
+      var d = $('.status .d', el);
+      if (d && !d.getAttribute('data-s')) {
+        d.setAttribute('data-s', '1');
+        d.innerHTML = 'executado <small>' + now() + '</small>';
+      }
+      $$('[data-count]', el).forEach(runCount);
+    } catch (e) {}
+  }
   function markUpTo(idx) {
     if (idx <= doneIdx) return;
     for (var i = 0; i <= idx; i++) {
       var el = seq[i];
+      if (i > doneIdx) stamp(el);
       el.classList.add('done');
-      if (i > doneIdx) startCounts(el);
       if (el.id === 'chat') { var ca = $('#chatAnchor'); if (ca) ca.classList.add('done'); }
     }
     doneIdx = idx;
@@ -296,34 +306,32 @@
 
   var stage = $('.stage'), pin = $('#demo'), wfView = $('#wfView'), wf = $('#wf'), wfWires = $('#wfWires');
   var scenBox = $('#scen'), sayEl = $('#say'), progEl = $('#prog'), outName = $('#outName'), outJson = $('#outJson');
-  var waChat = $('#waChat'), tabChat = $('#tabChat'), tabJson = $('#tabJson');
+  var paneChat = $('#paneChat'), paneTable = $('#paneTable');
   var H = 270;
   var scenIdx = 0, lastKey = '', manualStep = null;
   var nodeEls = {}, edgeEls = [];
 
-  function showTab(chat) {
-    if (!waChat || !outJson) return;
-    waChat.hidden = !chat;
-    outJson.hidden = chat;
-    if (tabChat) tabChat.setAttribute('aria-pressed', chat ? 'true' : 'false');
-    if (tabJson) tabJson.setAttribute('aria-pressed', chat ? 'false' : 'true');
+  var panes = { chat: paneChat, table: paneTable, json: outJson };
+  function showTab(name) {
+    Object.keys(panes).forEach(function (k) { if (panes[k]) panes[k].hidden = (k !== name); });
+    $$('.tabs button').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
   }
-  if (tabChat && tabJson && waChat) {
-    tabChat.addEventListener('click', function () { showTab(true); });
-    tabJson.addEventListener('click', function () { showTab(false); });
-    showTab(true);
-  }
+  $$('.tabs button').forEach(function (b) {
+    b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); });
+  });
+  showTab('chat');
 
-  function renderChat(sc, step) {
-    if (!waChat) return;
+  function renderPanes(sc, step) {
+    if (!paneChat || !paneTable) return;
     var h = '';
     for (var i = 0; i <= step && i < sc.steps.length; i++) {
       var m = sc.steps[i].msg;
       if (!m) continue;
-      h += '<div class="wb ' + m.w + (i === step ? ' new' : '') + '"><span>' + esc(m.t) + '</span>' + (m.w === 'u' ? '<i>✓✓</i>' : '') + '</div>';
+      h += '<div class="wb ' + m.w + (i === step ? ' new' : '') + '">' + esc(m.t) + '</div>';
     }
-    waChat.innerHTML = h || '<p class="wa-empty">A conversa aparece aqui conforme o fluxo executa.</p>';
-    waChat.scrollTop = waChat.scrollHeight;
+    paneChat.innerHTML = h || '<p class="wa-empty">A conversa aparece aqui conforme o fluxo executa.</p>';
+    paneChat.scrollTop = paneChat.scrollHeight;
+    paneTable.innerHTML = step < 0 ? '<p class="wa-empty">Role para executar o fluxo.</p>' : tableHtml(sc.steps[step].out);
   }
 
   function buildWorkflow() {
@@ -347,14 +355,6 @@
       act.setAttribute('pathLength', '1'); act.style.strokeDasharray = '1'; act.style.strokeDashoffset = '1';
       if (reduce) act.style.transition = 'none';
       wfWires.appendChild(base); wfWires.appendChild(act);
-      if (e[2]) {
-        var tx = document.createElementNS(NS, 'text');
-        tx.setAttribute('x', ((x1 + x2) / 2).toFixed(0));
-        tx.setAttribute('y', (((y1 + y2) / 2) - 9).toFixed(0));
-        tx.setAttribute('text-anchor', 'middle');
-        tx.textContent = e[2];
-        wfWires.appendChild(tx);
-      }
       edgeEls.push({ from: e[0], to: e[1], act: act });
     });
   }
@@ -454,7 +454,7 @@
       outName.textContent = NODES[sc.path[step]].t;
       putJson(outJson, st.out, true);
     }
-    renderChat(sc, step);
+    renderPanes(sc, step);
     if (step >= n - 1 && manualStep === null && progress() >= 0.999) {
       var an = $('#n-anchor');
       if (an) { var ai = seq.indexOf(an); if (ai >= 0) markUpTo(ai); }
@@ -545,7 +545,7 @@
 
   var KB = [
     { id: 'quem', q: 'Quem é a Kamilla?', k: ['quem', 'voce', 'sobre', 'apresent', 'resumo', 'perfil', 'kamilla', 'conta', 'fala de voce'],
-      a: 'Sou a Kamilla, AI Automation Engineer em Curitiba. Sou tecnóloga em Análise e Desenvolvimento de Sistemas e trabalho há mais de 2 anos com IA aplicada e automação de processos. Desenho e coloco em produção agentes de IA orquestrados em n8n, ligados a WhatsApp, banco de dados, filas e APIs.' },
+      a: 'Sou a Kamilla, AI & Automation Specialist em Curitiba. Sou tecnóloga em Análise e Desenvolvimento de Sistemas e trabalho há mais de 2 anos com IA aplicada e automação de processos. Desenho e coloco em produção agentes de IA orquestrados em n8n, ligados a WhatsApp, banco de dados, filas e APIs.' },
     { id: 'exp', q: 'Qual é a sua experiência?', k: ['experiencia', 'carreira', 'trabalh', 'empresa', 'cargo', 'historico', 'trajetoria', 'atua', 'top one', 'caunutro'],
       a: 'Desde 02/2026 sou Automation Specialist na Top One Serviços de Crédito: três agentes de IA no WhatsApp (suporte a parceiros, pós-venda e recuperação de crédito), a régua de cobrança, WhatsApp Flows e a infraestrutura de n8n, filas e Docker Swarm por trás deles. Antes fui AI Automation & IT Analyst na Caunutro (2025 a 2026) e estagiária de tecnologia lá (2024).' },
     { id: 'parceiros', q: 'Como é o agente de suporte a lojistas?', k: ['parceiro', 'lojista', 'token', 'suporte', 'atendimento'],
@@ -657,7 +657,7 @@
   $('#chatClear').addEventListener('click', resetChat);
   resetChat();
 
-  /* ---------- efeitos extras (só ligam se tudo acima carregou) ---------- */
+  /* ---------- efeitos extras: só ligam se tudo acima carregou ---------- */
   try {
     $$('[data-count]').forEach(function (el) {
       if (!reduce && !el.getAttribute('data-ran')) setCount(el, 0);
